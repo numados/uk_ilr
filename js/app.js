@@ -76,14 +76,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Save profiles to local directory
-    async function saveProfiles() {
-        // For each profile, save as JSON file in the profiles directory
-        for (const [profileName, profileData] of Object.entries(profiles)) {
-            await saveProfileToFile(profileName, profileData);
-        }
-    }
-
     // Update profile dropdown
     function updateProfileSelect() {
         profileSelect.innerHTML = '<option value="">Select a profile</option>';
@@ -868,32 +860,23 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const data = JSON.parse(e.target.result);
 
-                // Single-profile format: { name, firstEntry, trips }
-                if (data && typeof data === 'object' && 'firstEntry' in data && 'name' in data) {
-                    const name = String(data.name).trim();
-                    if (!name) { alert('Imported profile has empty name.'); return; }
-                    if (profiles[name]) {
-                        if (!confirm(`Profile "${name}" already exists. Overwrite with imported data?`)) return;
-                    }
-                    profiles[name] = { firstEntry: data.firstEntry, trips: Array.isArray(data.trips) ? data.trips : [] };
-                    await saveProfileToFile(name, profiles[name]);
-                    updateProfileSelect();
-                    profileSelect.value = name;
-                    profileSelect.dispatchEvent(new Event('change'));
+                if (!data || typeof data !== 'object' || !('firstEntry' in data) || !('name' in data)) {
+                    alert('Invalid file format. Expected a single-profile export with "name" and "firstEntry".');
                     return;
                 }
 
-                // Legacy multi-profile format: { name1: {...}, name2: {...} }
-                const incoming = data || {};
-                const conflicts = Object.keys(incoming).filter(k => profiles[k]);
-                if (conflicts.length && !confirm(`These profiles already exist and will be overwritten:\n${conflicts.join(', ')}\n\nProceed?`)) return;
-                profiles = { ...profiles, ...incoming };
-                saveProfiles();
+                const name = String(data.name).trim();
+                if (!name) { alert('Imported profile has empty name.'); return; }
+                if (profiles[name] && !confirm(`Profile "${name}" already exists. Overwrite with imported data?`)) return;
+
+                profiles[name] = { firstEntry: data.firstEntry, trips: Array.isArray(data.trips) ? data.trips : [] };
+                await saveProfileToFile(name, profiles[name]);
                 updateProfileSelect();
-                alert('Profiles imported successfully.');
+                profileSelect.value = name;
+                profileSelect.dispatchEvent(new Event('change'));
             } catch (err) {
-                console.error('Error importing profiles:', err);
-                alert('Error importing profiles. Please check the file format.');
+                console.error('Error importing profile:', err);
+                alert('Error importing profile. Please check the file format.');
             } finally {
                 importFileInput.value = '';
             }
@@ -931,7 +914,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const importProfilesBtn = document.createElement('button');
     importProfilesBtn.id = 'import-profiles-btn';
     importProfilesBtn.className = 'ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500';
-    importProfilesBtn.textContent = 'Import Profiles';
+    importProfilesBtn.textContent = 'Import Profile';
     importProfilesBtn.addEventListener('click', function() {
         importFileInput.click();
     });
