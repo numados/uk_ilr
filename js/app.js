@@ -961,8 +961,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Current date input change
     currentDateInput.addEventListener('change', refreshUI);
 
-    // Timeline length change
-    timelineLength.addEventListener('change', refreshUI);
+    // Timeline length change — persist and re-render
+    const savedTimelineLength = localStorage.getItem('ilrTimelineLength');
+    if (savedTimelineLength) timelineLength.value = savedTimelineLength;
+    timelineLength.addEventListener('change', () => {
+        localStorage.setItem('ilrTimelineLength', timelineLength.value);
+        refreshUI();
+    });
+
+    // Persist selected profile when it changes
+    profileSelect.addEventListener('change', () => {
+        if (profileSelect.value) localStorage.setItem('ilrLastProfile', profileSelect.value);
+        else localStorage.removeItem('ilrLastProfile');
+    });
 
     // Add export/import functionality
     refreshProfilesBtn.addEventListener('click', function() {
@@ -1039,5 +1050,11 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshProfilesBtn.parentNode.appendChild(importProfilesBtn);
     
     // Initialize the application
-    loadProfiles();
+    loadProfiles().then(() => {
+        const last = localStorage.getItem('ilrLastProfile');
+        if (last && profiles[last]) {
+            profileSelect.value = last;
+            profileSelect.dispatchEvent(new Event('change'));
+        }
+    });
 });
