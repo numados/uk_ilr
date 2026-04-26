@@ -961,6 +961,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Current date input change
     currentDateInput.addEventListener('change', refreshUI);
 
+    // Timeline length change
+    timelineLength.addEventListener('change', refreshUI);
+
     // Add export/import functionality
     refreshProfilesBtn.addEventListener('click', function() {
         // Create a JSON file with all profiles
