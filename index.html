@@ -230,13 +230,13 @@
             background: #ffffff;
             border: 1px solid var(--line);
             box-shadow: var(--shadow-sm);
-            overflow: hidden;
         }
         .stat::before {
             content: "";
             position: absolute; left: 0; top: 0; bottom: 0;
             width: 4px;
             background: var(--accent, #6366f1);
+            border-radius: 16px 0 0 16px;
         }
         .stat .label {
             display: flex; align-items: center; gap: 8px;
@@ -254,6 +254,44 @@
             background: var(--accent-soft, #eef2ff);
             color: var(--accent, #6366f1);
         }
+        .stat .info {
+            margin-left: auto;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: help;
+            transition: background .15s ease, color .15s ease;
+        }
+        .stat .info:hover { background: var(--accent-soft); color: var(--accent); }
+
+        /* Tooltip on hover of the stat card */
+        .stat[data-tip] { position: relative; }
+        .stat[data-tip]:hover::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            background: #0f172a;
+            color: #f8fafc;
+            font-size: 0.78rem;
+            font-weight: 500;
+            line-height: 1.45;
+            padding: 10px 12px;
+            border-radius: 10px;
+            white-space: normal;
+            box-shadow: 0 10px 30px rgba(15,23,42,0.25);
+            z-index: 30;
+            pointer-events: none;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+        .stat-grid { overflow: visible; }
+        .card { overflow: visible; }
         .stat .value {
             font-size: 2rem;
             font-weight: 800;
@@ -559,23 +597,25 @@
             </h2>
 
             <div class="stat-grid">
-                <div class="stat blue">
+                <div class="stat blue" data-tip="Days you have been outside the UK during the last 12 months counted back from the current date. The ILR limit is 180 days in any rolling 12-month window.">
                     <div class="label">
                         <span class="pill">
                             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                         </span>
                         Last 12 Months
+                        <span class="info" aria-hidden="true">i</span>
                     </div>
                     <div class="value" id="absence-last-12-months">0</div>
                     <div class="sub">days absent</div>
                 </div>
 
-                <div class="stat green">
+                <div class="stat green" data-tip="How many absence days you still have available in the current rolling 12-month window before hitting the 180-day limit (180 minus days absent).">
                     <div class="label">
                         <span class="pill">
                             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                         </span>
                         Remaining Days
+                        <span class="info" aria-hidden="true">i</span>
                     </div>
                     <div class="value" id="remaining-days">180</div>
                     <div class="sub">days allowed</div>
@@ -584,34 +624,37 @@
                     </div>
                 </div>
 
-                <div class="stat amber">
+                <div class="stat amber" data-tip="Days until the rolling 12-month window slides past the next absence, freeing up that absence and reducing the count for 'Last 12 Months'.">
                     <div class="label">
                         <span class="pill">
                             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                         </span>
                         Window Movement
+                        <span class="info" aria-hidden="true">i</span>
                     </div>
                     <div class="value" id="days-until-reduction">0</div>
                     <div class="sub">days until reduction</div>
                 </div>
 
-                <div class="stat red">
+                <div class="stat red" data-tip="Highest absence count found in any 12-month window since first entry. If this exceeds 180 days the continuous-residence rule was breached at some point.">
                     <div class="label">
                         <span class="pill">
                             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                         </span>
                         Worst 12-Month Window
+                        <span class="info" aria-hidden="true">i</span>
                     </div>
                     <div class="value" id="worst-rolling-absence">0</div>
                     <div class="sub" id="worst-window-detail">No absences recorded</div>
                 </div>
 
-                <div class="stat purple">
+                <div class="stat purple" data-tip="Days physically present in the UK out of total days since first entry (present / total). Useful to see overall residence build-up toward ILR eligibility.">
                     <div class="label">
                         <span class="pill">
                             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                         </span>
                         Total Time in UK
+                        <span class="info" aria-hidden="true">i</span>
                     </div>
                     <div class="value" id="total-time">0</div>
                     <div class="sub" id="total-time-detail">years and days</div>
