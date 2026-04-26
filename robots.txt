@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://numados.github.io/uk_ilr/sitemap.xml
