@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ILR Absence Calculator</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-grad-from: #eef2ff;
+            --bg-grad-via:  #f5f3ff;
+            --bg-grad-to:   #ecfeff;
+            --ink:          #0f172a;
+            --ink-soft:     #475569;
+            --line:         #e2e8f0;
+            --card:         rgba(255,255,255,0.75);
+            --card-solid:   #ffffff;
+            --ring:         99 102 241;  /* indigo-500 */
+            --shadow-sm:    0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06);
+            --shadow-md:    0 4px 6px -1px rgba(15,23,42,0.06), 0 10px 25px -5px rgba(15,23,42,0.08);
+            --shadow-lg:    0 10px 15px -3px rgba(15,23,42,0.08), 0 20px 40px -10px rgba(15,23,42,0.12);
+        }
+
+        html, body {
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            color: var(--ink);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            background:
+                radial-gradient(1200px 600px at 10% -10%, #c7d2fe55 0%, transparent 60%),
+                radial-gradient(1000px 500px at 110% 10%, #a7f3d055 0%, transparent 55%),
+                radial-gradient(900px 600px at 50% 110%, #fbcfe855 0%, transparent 55%),
+                linear-gradient(180deg, var(--bg-grad-from), var(--bg-grad-via) 50%, var(--bg-grad-to));
+            min-height: 100vh;
+        }
+
+        /* ---------- Layout primitives ---------- */
+        .app-shell { max-width: 1200px; margin: 0 auto; padding: 32px 24px 64px; }
+
+        .hero {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 28px;
+            padding: 22px 26px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #4338ca 100%);
+            color: #fff;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::after {
+            content: "";
+            position: absolute; inset: 0;
+            background:
+                radial-gradient(600px 200px at 90% 0%, rgba(167,243,208,0.25), transparent 60%),
+                radial-gradient(500px 200px at 0% 100%, rgba(251,207,232,0.25), transparent 60%);
+            pointer-events: none;
+        }
+        .hero-text h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin: 0;
+        }
+        .hero-text p {
+            margin: 4px 0 0;
+            color: #cbd5e1;
+            font-size: 0.92rem;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            backdrop-filter: blur(6px);
+        }
+        .hero-badge .dot {
+            width: 8px; height: 8px; border-radius: 999px;
+            background: #34d399; box-shadow: 0 0 0 4px rgba(52,211,153,0.18);
+        }
+
+        /* ---------- Cards ---------- */
+        .card {
+            background: var(--card);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(226,232,240,0.8);
+            border-radius: 18px;
+            box-shadow: var(--shadow-md);
+            padding: 22px 24px;
+            margin-bottom: 22px;
+        }
+        .card h2 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin: 0 0 16px;
+            display: flex; align-items: center; gap: 10px;
+            color: var(--ink);
+        }
+        .card h2 .icon {
+            display: inline-flex;
+            width: 28px; height: 28px;
+            align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+            color: #4338ca;
+            border-radius: 8px;
+        }
+
+        /* ---------- Forms ---------- */
+        label.field-label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--ink-soft);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 6px;
+        }
+        .input, select.input, input.input {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 0.92rem;
+            color: var(--ink);
+            background: #ffffff;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            transition: box-shadow .15s ease, border-color .15s ease, transform .05s ease;
+            font-family: inherit;
+        }
+        .input:focus {
+            outline: none;
+            border-color: rgb(var(--ring));
+            box-shadow: 0 0 0 4px rgba(99,102,241,0.15);
+        }
+
+        .field-row {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 14px;
+            align-items: end;
+        }
+        .field { grid-column: span 12 / span 12; }
+        @media (min-width: 720px) {
+            .field-sm  { grid-column: span 4 / span 4; }
+            .field-md  { grid-column: span 5 / span 5; }
+            .field-lg  { grid-column: span 6 / span 6; }
+            .field-actions { grid-column: span 12 / span 12; display: flex; flex-wrap: wrap; gap: 8px; }
+        }
+
+        /* ---------- Buttons ---------- */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: transform .04s ease, box-shadow .15s ease, background .15s ease, color .15s ease, border-color .15s ease;
+            white-space: nowrap;
+            font-family: inherit;
+        }
+        .btn:active { transform: translateY(1px); }
+        .btn:focus { outline: none; box-shadow: 0 0 0 4px rgba(99,102,241,0.18); }
+        .btn svg { width: 16px; height: 16px; }
+
+        .btn-primary {
+            background: linear-gradient(180deg, #6366f1, #4f46e5);
+            color: #fff;
+            box-shadow: 0 4px 12px -2px rgba(79,70,229,0.45);
+        }
+        .btn-primary:hover { background: linear-gradient(180deg, #4f46e5, #4338ca); }
+
+        .btn-success {
+            background: linear-gradient(180deg, #10b981, #059669);
+            color: #fff;
+            box-shadow: 0 4px 12px -2px rgba(5,150,105,0.4);
+        }
+        .btn-success:hover { background: linear-gradient(180deg, #059669, #047857); }
+
+        .btn-purple {
+            background: linear-gradient(180deg, #a855f7, #7c3aed);
+            color: #fff;
+            box-shadow: 0 4px 12px -2px rgba(124,58,237,0.4);
+        }
+        .btn-purple:hover { background: linear-gradient(180deg, #7c3aed, #6d28d9); }
+
+        .btn-danger {
+            background: linear-gradient(180deg, #ef4444, #dc2626);
+            color: #fff;
+            box-shadow: 0 4px 12px -2px rgba(220,38,38,0.4);
+        }
+        .btn-danger:hover { background: linear-gradient(180deg, #dc2626, #b91c1c); }
+
+        .btn-ghost {
+            background: #ffffff;
+            color: var(--ink);
+            border-color: var(--line);
+        }
+        .btn-ghost:hover { background: #f8fafc; border-color: #cbd5e1; }
+
+        /* ---------- Stat cards ---------- */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 14px;
+        }
+        @media (min-width: 720px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (min-width: 1080px) { .stat-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+        .stat {
+            position: relative;
+            padding: 18px 18px 16px;
+            border-radius: 16px;
+            background: #ffffff;
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+        .stat::before {
+            content: "";
+            position: absolute; left: 0; top: 0; bottom: 0;
+            width: 4px;
+            background: var(--accent, #6366f1);
+        }
+        .stat .label {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--ink-soft);
+            margin-bottom: 8px;
+        }
+        .stat .label .pill {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 22px; height: 22px;
+            border-radius: 7px;
+            background: var(--accent-soft, #eef2ff);
+            color: var(--accent, #6366f1);
+        }
+        .stat .value {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            color: var(--ink);
+            line-height: 1.1;
+        }
+        .stat .sub {
+            margin-top: 4px;
+            font-size: 0.8rem;
+            color: var(--ink-soft);
+        }
+        .stat.blue   { --accent:#3b82f6; --accent-soft:#dbeafe; }
+        .stat.green  { --accent:#10b981; --accent-soft:#d1fae5; }
+        .stat.amber  { --accent:#f59e0b; --accent-soft:#fef3c7; }
+        .stat.red    { --accent:#ef4444; --accent-soft:#fee2e2; }
+        .stat.purple { --accent:#8b5cf6; --accent-soft:#ede9fe; }
+
+        .progress {
+            margin-top: 10px;
+            height: 6px;
+            background: #f1f5f9;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .progress > div { height: 100%; transition: width .3s ease; }
+
+        /* ---------- Timeline (preserves classes used by app.js) ---------- */
+        .day-box {
+            width: 12px;
+            height: 24px;
+            display: inline-block;
+            margin: 1px;
+            border: 1px solid #CBD5E0;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            position: relative;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        .day-box:hover {
+            transform: scale(1.35);
+            z-index: 10;
+            box-shadow: 0 4px 14px rgba(15,23,42,0.25);
+        }
+        .day-present { background-color: #10B981; }
+        .day-absent  { background-color: #EF4444; }
+        .day-future  { background-color: #E5E7EB; }
+        .day-rolling-window {
+            position: relative;
+            border: 3px solid #1e293b;
+        }
+        .day-rolling-window-start {
+            border-left: 3px solid #1e293b !important;
+            box-sizing: border-box;
+        }
+        .day-rolling-window-end {
+            border-right: 3px solid #1e293b !important;
+        }
+
+        .timeline-container {
+            overflow-x: auto;
+            white-space: nowrap;
+            padding: 18px 14px;
+            margin-bottom: 4px;
+            background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+            border-radius: 12px;
+            border: 1px solid var(--line);
+        }
+        .timeline-container::-webkit-scrollbar { height: 10px; }
+        .timeline-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .timeline-container::-webkit-scrollbar-track { background: transparent; }
+
+        .timeline-wrapper {
+            min-height: 100px;
+            position: relative;
+            padding: 10px;
+        }
+        .month-marker {
+            position: relative;
+            display: inline-block;
+            width: 1px;
+            height: 5px;
+            background-color: #6B7280;
+            margin-top: 4px;
+        }
+        .year-marker {
+            height: 30px;
+            width: 2px;
+            background-color: #1F2937;
+            margin-top: 4px;
+        }
+
+        .timeline-legend {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 18px;
+            margin-bottom: 14px;
+            padding: 10px 12px;
+            background: #ffffff;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--ink-soft);
+            font-weight: 500;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            border: 1px solid #CBD5E0;
+        }
+
+        .tooltip {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #0f172a;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            white-space: nowrap;
+            display: none;
+            z-index: 20;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+        }
+        .day-box:hover .tooltip { display: block; }
+
+        .current-date-line {
+            position: absolute;
+            top: 0px;
+            height: 30px;
+            width: 2px;
+            background-color: #0f172a;
+            z-index: 10;
+        }
+        .current-date-label {
+            position: absolute;
+            top: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0f172a;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* ---------- Trips table ---------- */
+        #trips-table {
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        #trips-table thead {
+            background: linear-gradient(180deg, #f8fafc, #f1f5f9) !important;
+        }
+        #trips-table th {
+            font-size: 0.72rem !important;
+            letter-spacing: 0.06em;
+            color: #475569 !important;
+        }
+        #trips-table tbody tr {
+            transition: background .12s ease;
+        }
+        #trips-table tbody tr:hover { background: #f8fafc; }
+        #trips-table td {
+            font-size: 0.9rem;
+            color: var(--ink);
+        }
+
+        /* Make the legend window-pill match modern aesthetic */
+        .pill-window {
+            border: 1.5px dashed #6366f1;
+            color: #4338ca;
+            background: #eef2ff;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        /* Section header with controls */
+        .section-head {
+            display: flex; flex-wrap: wrap; gap: 10px;
+            justify-content: space-between; align-items: center;
+            margin-bottom: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+
+        <!-- Hero -->
+        <header class="hero">
+            <div class="hero-text">
+                <h1>ILR Absence Calculator</h1>
+                <p>Track UK absences against the 180-day / rolling-12-month rule for Indefinite Leave to Remain.</p>
+            </div>
+            <span class="hero-badge"><span class="dot"></span> Local-only · profiles in your browser</span>
+        </header>
+
+        <!-- Profile -->
+        <section class="card">
+            <h2>
+                <span class="icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </span>
+                Profiles
+            </h2>
+
+            <div class="field-row">
+                <div class="field field-sm">
+                    <label class="field-label" for="profile-select">Active Profile</label>
+                    <select id="profile-select" class="input">
+                        <option value="">Select a profile</option>
+                    </select>
+                </div>
+                <div class="field field-sm">
+                    <label class="field-label" for="new-profile-name">New Profile</label>
+                    <input type="text" id="new-profile-name" class="input" placeholder="e.g. Alex">
+                </div>
+                <div class="field field-actions">
+                    <button id="create-profile-btn" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                        Create Profile
+                    </button>
+                    <button id="refresh-profiles-btn" class="btn btn-success">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Export Profiles
+                    </button>
+                    <button id="choose-profiles-btn" class="btn btn-purple">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                        Choose Profiles Directory
+                    </button>
+                </div>
+            </div>
+
+            <div id="profile-details" style="display: none; margin-top: 18px; padding-top: 18px; border-top: 1px dashed var(--line);">
+                <div class="field-row">
+                    <div class="field field-sm">
+                        <label class="field-label" for="first-entry-date">First Entry Date in UK</label>
+                        <input type="date" id="first-entry-date" class="input">
+                    </div>
+                    <div class="field field-sm">
+                        <label class="field-label" for="current-date">Current Date</label>
+                        <input type="date" id="current-date" class="input">
+                    </div>
+                    <div class="field field-actions">
+                        <button id="save-profile-btn" class="btn btn-success">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Save Profile
+                        </button>
+                        <button id="delete-profile-btn" class="btn btn-danger">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+                            Delete Profile
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Trip Entry -->
+        <section class="card" id="trip-form-container" style="display: none;">
+            <h2>
+                <span class="icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+                </span>
+                Add Trip
+            </h2>
+            <div class="field-row">
+                <div class="field field-md">
+                    <label class="field-label" for="departure-date">Departure Date</label>
+                    <input type="date" id="departure-date" class="input">
+                </div>
+                <div class="field field-md">
+                    <label class="field-label" for="return-date">Return Date <span style="text-transform:none;font-weight:400;color:#94a3b8;">(if already returned)</span></label>
+                    <input type="date" id="return-date" class="input">
+                </div>
+                <div class="field field-actions">
+                    <button id="add-trip-btn" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                        Add Trip
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Absence Summary -->
+        <section class="card" id="absence-summary" style="display: none;">
+            <h2>
+                <span class="icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+                </span>
+                Absence Summary
+            </h2>
+
+            <div class="stat-grid">
+                <div class="stat blue">
+                    <div class="label">
+                        <span class="pill">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </span>
+                        Last 12 Months
+                    </div>
+                    <div class="value" id="absence-last-12-months">0</div>
+                    <div class="sub">days absent</div>
+                </div>
+
+                <div class="stat green">
+                    <div class="label">
+                        <span class="pill">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        Remaining Days
+                    </div>
+                    <div class="value" id="remaining-days">180</div>
+                    <div class="sub">days allowed</div>
+                    <div class="progress">
+                        <div id="remaining-days-bar" class="bg-green-500" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <div class="stat amber">
+                    <div class="label">
+                        <span class="pill">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                        </span>
+                        Window Movement
+                    </div>
+                    <div class="value" id="days-until-reduction">0</div>
+                    <div class="sub">days until reduction</div>
+                </div>
+
+                <div class="stat red">
+                    <div class="label">
+                        <span class="pill">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </span>
+                        Worst 12-Month Window
+                    </div>
+                    <div class="value" id="worst-rolling-absence">0</div>
+                    <div class="sub" id="worst-window-detail">No absences recorded</div>
+                </div>
+
+                <div class="stat purple">
+                    <div class="label">
+                        <span class="pill">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        </span>
+                        Total Time in UK
+                    </div>
+                    <div class="value" id="total-time">0</div>
+                    <div class="sub" id="total-time-detail">years and days</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Timeline Visualization -->
+        <section class="card" id="timeline-visualization">
+            <div class="section-head">
+                <h2 style="margin: 0;">
+                    <span class="icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    </span>
+                    Timeline Visualization
+                </h2>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <label for="timeline-length" class="field-label" style="margin:0;">Length</label>
+                    <select id="timeline-length" class="input" style="width:auto;padding:8px 10px;">
+                        <option value="5" selected>5 Years</option>
+                        <option value="6">6 Years</option>
+                        <option value="7">7 Years</option>
+                        <option value="8">8 Years</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="timeline-legend">
+                <div class="legend-item">
+                    <div class="legend-color day-present"></div>
+                    <span>Present</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color day-absent"></div>
+                    <span>Absent</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color day-future"></div>
+                    <span>Future</span>
+                </div>
+                <div class="legend-item">
+                    <span class="pill-window">Rolling 12-month window</span>
+                </div>
+            </div>
+
+            <div class="timeline-container">
+                <div class="timeline-wrapper" id="timeline-container">
+                    <!-- Timeline will be generated here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Trips List -->
+        <section class="card" id="trips-list-container" style="display: none;">
+            <h2>
+                <span class="icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M9 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-4"/><polyline points="9 7 12 4 15 7"/><line x1="12" y1="4" x2="12" y2="15"/></svg>
+                </span>
+                Recorded Trips
+            </h2>
+            <div class="overflow-x-auto" style="border:1px solid var(--line); border-radius: 12px;">
+                <table class="min-w-full divide-y divide-gray-200" id="trips-table">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Departure Date</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Return Date</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Absent</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="trips-list">
+                        <!-- Trips will be listed here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4" id="no-trips-message">
+                <p class="text-gray-500 text-center italic" style="padding: 18px 0;">No trips recorded yet.</p>
+            </div>
+        </section>
+
+        <footer style="text-align:center;color:#94a3b8;font-size:0.78rem;margin-top:24px;">
+            Personal tracking tool · not legal advice. Based on Appendix Continuous Residence (CR 3.1).
+        </footer>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
