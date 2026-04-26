@@ -262,172 +262,346 @@ document.addEventListener('DOMContentLoaded', () => {
     function createTimeline(firstEntry, currentDate, trips) {
         timelineContainer.innerHTML = '';
 
-        const startDate = new Date(firstEntry);
+        const startDate = toDateOnly(new Date(firstEntry));
         const endDate = new Date(startDate);
         const years = parseInt(timelineLength.value) || 5;
         endDate.setFullYear(endDate.getFullYear() + years);
-    
 
-        // Create an array of dates and their status
-        const dateArray = [];
-        let currentDateCopy = new Date(startDate);
-
-        // Calculate the rolling window dates
-        const rollingWindowEnd = toDateOnly(currentDate);
+        const today = toDateOnly(currentDate);
+        const rollingWindowEnd = today;
         const rollingWindowStart = addDays(addYears(rollingWindowEnd, -1), 1);
 
-        // Create a year labels container
-        const yearLabelsContainer = document.createElement('div');
-        yearLabelsContainer.className = 'relative h-12 mb-2';
-        timelineContainer.appendChild(yearLabelsContainer);
-
-        while (currentDateCopy <= endDate) {
-            // Check if the date is in the rolling window
-            const isInRollingWindow = currentDateCopy >= rollingWindowStart && currentDateCopy <= rollingWindowEnd;
-            
-            // Check if it's the start or end of rolling window
-            const isRollingWindowStart = currentDateCopy.getTime() === rollingWindowStart.getTime();
-            const isRollingWindowEnd = currentDateCopy.getTime() === rollingWindowEnd.getTime();
-            
-            // Determine if the date is in the future
-            const isFutureDate = currentDateCopy > currentDate;
-
-            // Check if the date is within any trip (absent)
+        // Build day-by-day status array
+        const dateArray = [];
+        let cur = new Date(startDate);
+        while (cur <= endDate) {
             let isAbsent = false;
             for (const trip of trips) {
-                const absenceRange = getTripAbsenceRange(trip, currentDate);
-                
-                if (absenceRange && currentDateCopy >= absenceRange.startDate && currentDateCopy <= absenceRange.endDate) {
-                    isAbsent = true;
-                    break;
-                }
+                const r = getTripAbsenceRange(trip, today);
+                if (r && cur >= r.startDate && cur <= r.endDate) { isAbsent = true; break; }
             }
-
+            const t = cur.getTime();
             dateArray.push({
-                date: new Date(currentDateCopy),
+                date: new Date(cur),
                 isAbsent,
-                isFutureDate,
-                isInRollingWindow,
-                isRollingWindowStart,
-                isRollingWindowEnd
+                isFutureDate: cur > today,
+                isInRollingWindow: cur >= rollingWindowStart && cur <= rollingWindowEnd,
+                isRollingWindowStart: t === rollingWindowStart.getTime(),
+                isRollingWindowEnd: t === rollingWindowEnd.getTime(),
+                isToday: t === today.getTime()
             });
-
-            // Move to the next day
-            currentDateCopy.setDate(currentDateCopy.getDate() + 1);
+            cur.setDate(cur.getDate() + 1);
         }
 
-        // Calculate days blocks per year for consistent display
-        const totalDays = dateArray.length;
-        const yearsDisplayed = years;
-        const daysPerYear = Math.ceil(totalDays / yearsDisplayed);
-        
-        // Container for all days
-        const daysContainer = document.createElement('div');
-        daysContainer.className = 'flex flex-wrap';
-        timelineContainer.appendChild(daysContainer);
+        // ===== Floating tooltip used by both chart and strip =====
+        const floatingTip = document.createElement('div');
+        floatingTip.className = 'timeline-tooltip';
+        timelineContainer.appendChild(floatingTip);
 
-        // Create the timeline elements
-        dateArray.forEach((dateInfo, index) => {
-            const dayBox = document.createElement('div');
-            dayBox.className = 'day-box';
-            
-            if (dateInfo.isFutureDate) {
-                dayBox.classList.add('day-future');
-            } else if (dateInfo.isAbsent) {
-                dayBox.classList.add('day-absent');
-            } else {
-                dayBox.classList.add('day-present');
+        // ===== Trailing 12-month absence chart =====
+        timelineContainer.appendChild(buildTrailing12Chart(dateArray, today, floatingTip, timelineContainer));
+
+        // ===== Year-per-row strip =====
+        const strip = document.createElement('div');
+        strip.className = 'year-strip';
+
+        const byYear = new Map();
+        for (const d of dateArray) {
+            const y = d.date.getFullYear();
+            if (!byYear.has(y)) byYear.set(y, []);
+            byYear.get(y).push(d);
+        }
+        const sortedYears = [...byYear.keys()].sort((a, b) => a - b);
+        const monthShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+        for (const y of sortedYears) {
+            const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+            const daysInMonth = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            const days = byYear.get(y);
+
+            const row = document.createElement('div');
+            row.className = 'year-row';
+
+            const yearLabel = document.createElement('div');
+            yearLabel.className = 'year-row-label';
+            yearLabel.textContent = y;
+            row.appendChild(yearLabel);
+
+            const content = document.createElement('div');
+            content.className = 'year-row-content';
+
+            // Month-name header (flex weighted by days in month)
+            const monthLabels = document.createElement('div');
+            monthLabels.className = 'month-labels';
+            for (let m = 0; m < 12; m++) {
+                const span = document.createElement('span');
+                span.textContent = monthShort[m];
+                span.style.flex = `${daysInMonth[m]} 0 0`;
+                monthLabels.appendChild(span);
             }
-            
-            if (dateInfo.isInRollingWindow) {
-                dayBox.classList.add('day-rolling-window');
-                
-                if (dateInfo.isRollingWindowStart) {
-                    dayBox.classList.add('day-rolling-window-start');
-                }
-                
-                if (dateInfo.isRollingWindowEnd) {
-                    dayBox.classList.add('day-rolling-window-end');
-                }
+            content.appendChild(monthLabels);
+
+            // Day boxes
+            const daysWrap = document.createElement('div');
+            daysWrap.className = 'year-row-days';
+
+            // Pad with empty boxes if year doesn't start on Jan 1 (only the very first year)
+            const firstDay = days[0].date;
+            const startOffset = dayOfYear(firstDay) - 1;
+            for (let p = 0; p < startOffset; p++) {
+                const empty = document.createElement('div');
+                empty.className = 'day-box day-empty';
+                daysWrap.appendChild(empty);
             }
 
-            // Add tooltip with date information
-            const tooltip = document.createElement('div');
-            tooltip.className = 'tooltip';
-            
-            const dayDate = formatDateForDisplay(dateInfo.date);
-            
-            tooltip.textContent = `${dayDate}`;
-            dayBox.appendChild(tooltip);
-            
-            daysContainer.appendChild(dayBox);
+            for (const di of days) {
+                const dayBox = document.createElement('div');
+                dayBox.className = 'day-box';
+                dayBox.dataset.date = formatDateForDisplay(di.date);
+                dayBox.dataset.status = di.isFutureDate ? 'Future' : (di.isAbsent ? 'Absent' : 'Present');
+                if (di.isFutureDate) dayBox.classList.add('day-future');
+                else if (di.isAbsent) dayBox.classList.add('day-absent');
+                else dayBox.classList.add('day-present');
 
-            // Add year and month markers
-            const date = dateInfo.date;
-            
-            // Add year markers
-            if (date.getDate() === 1 && date.getMonth() === 0) {
-                // Create year marker
-                const yearMarkerContainer = document.createElement('div');
-                yearMarkerContainer.className = 'absolute bottom-0';
-                yearMarkerContainer.style.left = `${(index / totalDays) * 100}%`;
-                
-                const yearMarker = document.createElement('div');
-                yearMarker.className = 'year-marker';
-                yearMarkerContainer.appendChild(yearMarker);
-                
-                const yearLabel = document.createElement('div');
-                yearLabel.className = 'text-sm font-medium text-gray-800 -ml-6 mt-1';
-                yearLabel.textContent = date.getFullYear();
-                yearMarkerContainer.appendChild(yearLabel);
-                
-                yearLabelsContainer.appendChild(yearMarkerContainer);
-            }
-            
-            // Add month markers
-            if (date.getDate() === 1) {
-                // Create month marker only if it's not also a year marker
-                if (date.getMonth() !== 0) {
-                    const monthMarkerContainer = document.createElement('div');
-                    monthMarkerContainer.className = 'absolute bottom-4';
-                    monthMarkerContainer.style.left = `${(index / totalDays) * 100}%`;
-                    
-                    const monthMarker = document.createElement('div');
-                    monthMarker.className = 'month-marker';
-                    monthMarkerContainer.appendChild(monthMarker);
-                    
-                    // Add month name for quarters
-                    if (date.getMonth() % 3 === 0) {
-                        const monthLabel = document.createElement('div');
-                        monthLabel.className = 'text-xs text-gray-600 -ml-4 mt-1';
-                        const monthNames = ['Jan', 'Apr', 'Jul', 'Oct'];
-                        monthLabel.textContent = monthNames[date.getMonth() / 3];
-                        monthMarkerContainer.appendChild(monthLabel);
-                    }
-                    
-                    yearLabelsContainer.appendChild(monthMarkerContainer);
+                if (di.isInRollingWindow) {
+                    dayBox.classList.add('day-rolling-window');
+                    if (di.isRollingWindowStart) dayBox.classList.add('day-rolling-window-start');
+                    if (di.isRollingWindowEnd) dayBox.classList.add('day-rolling-window-end');
                 }
+                if (di.isToday) dayBox.classList.add('day-today');
+
+                daysWrap.appendChild(dayBox);
             }
+
+            attachStripHover(daysWrap, floatingTip, timelineContainer);
+
+            content.appendChild(daysWrap);
+            row.appendChild(content);
+            strip.appendChild(row);
+        }
+
+        timelineContainer.appendChild(strip);
+    }
+
+    function attachStripHover(daysWrap, tip, anchor) {
+        daysWrap.addEventListener('mousemove', (e) => {
+            const target = e.target.closest('.day-box');
+            if (!target || target.classList.contains('day-empty') || !target.dataset.date) {
+                tip.style.opacity = '0';
+                return;
+            }
+            const status = target.dataset.status;
+            const dot = status === 'Absent' ? '#ef4444' : status === 'Present' ? '#10b981' : '#9ca3af';
+            tip.innerHTML = `<span class="tt-dot" style="background:${dot}"></span><span class="tt-date">${target.dataset.date}</span><span class="tt-meta">${status}</span>`;
+            positionTooltip(tip, anchor, e);
         });
+        daysWrap.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
+    }
 
-        // Add a marker for the current date
-        const currentDateContainer = document.createElement('div');
-        currentDateContainer.className = 'current-date-line';
-        
-        // Calculate position for current date marker
-        const totalDaysInRange = (endDate - startDate) / (1000 * 60 * 60 * 24);
-        const daysPassed = (currentDate - startDate) / (1000 * 60 * 60 * 24);
-        const percentage = (daysPassed / totalDaysInRange) * 100;
-        
-        currentDateContainer.style.left = `${percentage}%`;
-        
-        // Add current date label
-        const currentDateLabel = document.createElement('div');
-        currentDateLabel.className = 'current-date-label';
-        currentDateLabel.textContent = 'Today';
-        currentDateContainer.appendChild(currentDateLabel);
-        
-        daysContainer.appendChild(currentDateContainer);
+    function positionTooltip(tip, anchor, e) {
+        const aRect = anchor.getBoundingClientRect();
+        const x = e.clientX - aRect.left;
+        const y = e.clientY - aRect.top;
+        tip.style.opacity = '1';
+        tip.style.left = `${x}px`;
+        tip.style.top = `${y - 14}px`;
+    }
+
+    function dayOfYear(date) {
+        const start = new Date(date.getFullYear(), 0, 0);
+        const diff = date - start;
+        return Math.floor(diff / (1000 * 60 * 60 * 24));
+    }
+
+    // Trailing 12-month absence count line chart (SVG)
+    function buildTrailing12Chart(dateArray, today, tip, anchor) {
+        const wrap = document.createElement('div');
+        wrap.className = 'trailing-chart';
+
+        const n = dateArray.length;
+        const counts = new Array(n);
+        let absent = 0;
+        const W365 = 365;
+        for (let i = 0; i < n; i++) {
+            if (dateArray[i].isAbsent) absent++;
+            if (i - W365 >= 0 && dateArray[i - W365].isAbsent) absent--;
+            counts[i] = dateArray[i].isFutureDate ? null : absent;
+        }
+
+        const W = 1000, H = 200;
+        const padL = 36, padR = 16, padT = 18, padB = 28;
+        const plotW = W - padL - padR;
+        const plotH = H - padT - padB;
+        const maxY = 200;
+        const x = i => padL + (n <= 1 ? 0 : (i / (n - 1)) * plotW);
+        const y = v => padT + plotH - (v / maxY) * plotH;
+
+        let linePath = '';
+        let areaPath = '';
+        let started = false;
+        let lastValidI = -1;
+        let lastValidV = 0;
+        for (let i = 0; i < n; i++) {
+            if (counts[i] === null) break;
+            const xi = x(i), yi = y(counts[i]);
+            if (!started) { linePath = `M ${xi} ${yi}`; areaPath = `M ${xi} ${y(0)} L ${xi} ${yi}`; started = true; }
+            else { linePath += ` L ${xi} ${yi}`; areaPath += ` L ${xi} ${yi}`; }
+            lastValidI = i; lastValidV = counts[i];
+        }
+        if (started) areaPath += ` L ${x(lastValidI)} ${y(0)} Z`;
+
+        const ns = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.setAttribute('preserveAspectRatio', 'none');
+        svg.classList.add('trailing-svg');
+
+        // Defs (gradient)
+        const defs = document.createElementNS(ns, 'defs');
+        const grad = document.createElementNS(ns, 'linearGradient');
+        grad.setAttribute('id', 'trailingGrad');
+        grad.setAttribute('x1', '0'); grad.setAttribute('x2', '0');
+        grad.setAttribute('y1', '0'); grad.setAttribute('y2', '1');
+        const s1 = document.createElementNS(ns, 'stop');
+        s1.setAttribute('offset', '0%'); s1.setAttribute('stop-color', '#6366f1'); s1.setAttribute('stop-opacity', '0.35');
+        const s2 = document.createElementNS(ns, 'stop');
+        s2.setAttribute('offset', '100%'); s2.setAttribute('stop-color', '#6366f1'); s2.setAttribute('stop-opacity', '0.02');
+        grad.appendChild(s1); grad.appendChild(s2);
+        defs.appendChild(grad);
+        svg.appendChild(defs);
+
+        // Y-axis grid + labels
+        [0, 50, 100, 150, 180].forEach(v => {
+            const ln = document.createElementNS(ns, 'line');
+            ln.setAttribute('x1', padL); ln.setAttribute('x2', W - padR);
+            ln.setAttribute('y1', y(v)); ln.setAttribute('y2', y(v));
+            ln.setAttribute('stroke', v === 180 ? '#ef4444' : '#e2e8f0');
+            ln.setAttribute('stroke-width', v === 180 ? 1.5 : 1);
+            if (v === 180) ln.setAttribute('stroke-dasharray', '6 4');
+            svg.appendChild(ln);
+            const lbl = document.createElementNS(ns, 'text');
+            lbl.setAttribute('x', padL - 6); lbl.setAttribute('y', y(v) + 3);
+            lbl.setAttribute('text-anchor', 'end');
+            lbl.setAttribute('font-size', '10');
+            lbl.setAttribute('fill', v === 180 ? '#ef4444' : '#94a3b8');
+            lbl.textContent = v;
+            svg.appendChild(lbl);
+        });
+        const limitLabel = document.createElementNS(ns, 'text');
+        limitLabel.setAttribute('x', W - padR - 4); limitLabel.setAttribute('y', y(180) - 4);
+        limitLabel.setAttribute('text-anchor', 'end'); limitLabel.setAttribute('font-size', '10');
+        limitLabel.setAttribute('font-weight', '600'); limitLabel.setAttribute('fill', '#ef4444');
+        limitLabel.textContent = '180-day limit';
+        svg.appendChild(limitLabel);
+
+        // X-axis year ticks
+        for (let i = 0; i < n; i++) {
+            const d = dateArray[i].date;
+            if (d.getMonth() === 0 && d.getDate() === 1) {
+                const tx = x(i);
+                const tl = document.createElementNS(ns, 'line');
+                tl.setAttribute('x1', tx); tl.setAttribute('x2', tx);
+                tl.setAttribute('y1', padT); tl.setAttribute('y2', H - padB);
+                tl.setAttribute('stroke', '#e2e8f0');
+                svg.appendChild(tl);
+                const txt = document.createElementNS(ns, 'text');
+                txt.setAttribute('x', tx); txt.setAttribute('y', H - padB + 14);
+                txt.setAttribute('text-anchor', 'middle');
+                txt.setAttribute('font-size', '11'); txt.setAttribute('font-weight', '600');
+                txt.setAttribute('fill', '#475569');
+                txt.textContent = d.getFullYear();
+                svg.appendChild(txt);
+            }
+        }
+
+        // Area + line
+        if (areaPath) {
+            const ap = document.createElementNS(ns, 'path');
+            ap.setAttribute('d', areaPath); ap.setAttribute('fill', 'url(#trailingGrad)');
+            svg.appendChild(ap);
+        }
+        if (linePath) {
+            const lp = document.createElementNS(ns, 'path');
+            lp.setAttribute('d', linePath); lp.setAttribute('fill', 'none');
+            lp.setAttribute('stroke', '#4f46e5'); lp.setAttribute('stroke-width', '2');
+            lp.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(lp);
+        }
+
+        // Today marker
+        let todayI = -1;
+        for (let i = 0; i < n; i++) {
+            if (dateArray[i].date.getTime() === today.getTime()) { todayI = i; break; }
+        }
+        if (todayI >= 0 && counts[todayI] !== null) {
+            const tx = x(todayI);
+            const tline = document.createElementNS(ns, 'line');
+            tline.setAttribute('x1', tx); tline.setAttribute('x2', tx);
+            tline.setAttribute('y1', padT); tline.setAttribute('y2', H - padB);
+            tline.setAttribute('stroke', '#0f172a'); tline.setAttribute('stroke-width', 1);
+            tline.setAttribute('stroke-dasharray', '3 3');
+            svg.appendChild(tline);
+            const dot = document.createElementNS(ns, 'circle');
+            dot.setAttribute('cx', tx); dot.setAttribute('cy', y(counts[todayI]));
+            dot.setAttribute('r', 4); dot.setAttribute('fill', '#4f46e5');
+            dot.setAttribute('stroke', 'white'); dot.setAttribute('stroke-width', 2);
+            svg.appendChild(dot);
+        }
+
+        // Hover overlay: vertical guide line + dot + tooltip
+        const hoverLine = document.createElementNS(ns, 'line');
+        hoverLine.setAttribute('y1', padT); hoverLine.setAttribute('y2', H - padB);
+        hoverLine.setAttribute('stroke', '#475569'); hoverLine.setAttribute('stroke-width', '1');
+        hoverLine.setAttribute('opacity', '0');
+        svg.appendChild(hoverLine);
+        const hoverDot = document.createElementNS(ns, 'circle');
+        hoverDot.setAttribute('r', '4'); hoverDot.setAttribute('fill', '#4f46e5');
+        hoverDot.setAttribute('stroke', 'white'); hoverDot.setAttribute('stroke-width', '2');
+        hoverDot.setAttribute('opacity', '0');
+        svg.appendChild(hoverDot);
+
+        if (tip && anchor) {
+            svg.addEventListener('mousemove', (e) => {
+                const r = svg.getBoundingClientRect();
+                const vbX = ((e.clientX - r.left) / r.width) * W;
+                if (vbX < padL || vbX > W - padR) {
+                    hoverLine.setAttribute('opacity', '0');
+                    hoverDot.setAttribute('opacity', '0');
+                    tip.style.opacity = '0';
+                    return;
+                }
+                let i = Math.round(((vbX - padL) / plotW) * (n - 1));
+                if (i < 0) i = 0; if (i >= n) i = n - 1;
+                if (counts[i] === null) {
+                    while (i > 0 && counts[i] === null) i--;
+                }
+                const tx = x(i);
+                const ty = counts[i] !== null ? y(counts[i]) : y(0);
+                hoverLine.setAttribute('x1', tx); hoverLine.setAttribute('x2', tx);
+                hoverLine.setAttribute('opacity', '1');
+                hoverDot.setAttribute('cx', tx); hoverDot.setAttribute('cy', ty);
+                hoverDot.setAttribute('opacity', '1');
+                const v = counts[i];
+                const dColor = v == null ? '#9ca3af' : (v > 180 ? '#ef4444' : v > 150 ? '#f59e0b' : '#10b981');
+                tip.innerHTML =
+                    `<span class="tt-dot" style="background:${dColor}"></span>` +
+                    `<span class="tt-date">${formatDateForDisplay(dateArray[i].date)}</span>` +
+                    `<span class="tt-meta">${v == null ? 'future' : v + ' days absent · trailing 12mo'}</span>`;
+                positionTooltip(tip, anchor, e);
+            });
+            svg.addEventListener('mouseleave', () => {
+                hoverLine.setAttribute('opacity', '0');
+                hoverDot.setAttribute('opacity', '0');
+                tip.style.opacity = '0';
+            });
+        }
+
+        const title = document.createElement('div');
+        title.className = 'trailing-chart-title';
+        title.innerHTML = 'Trailing 12-month absence days <span>· each point = days outside UK in the prior 365 days</span>';
+        wrap.appendChild(title);
+        wrap.appendChild(svg);
+        return wrap;
     }
 
     // Update the trips table
