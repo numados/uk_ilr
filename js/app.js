@@ -975,67 +975,103 @@ document.addEventListener('DOMContentLoaded', () => {
         else localStorage.removeItem('ilrLastProfile');
     });
 
-    // Add export/import functionality
+    // Export ACTIVE profile only
     refreshProfilesBtn.addEventListener('click', function() {
-        // Create a JSON file with all profiles
-        const profilesJson = JSON.stringify(profiles, null, 2);
-        const blob = new Blob([profilesJson], { type: 'application/json' });
+        const name = profileSelect.value;
+        if (!name || !profiles[name]) {
+            alert('Select a profile to export.');
+            return;
+        }
+        const payload = { name, firstEntry: profiles[name].firstEntry, trips: profiles[name].trips || [] };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        
-        // Create download link
+        const safeName = name.replace(/[^a-z0-9_-]+/gi, '_');
         const downloadLink = document.createElement('a');
         downloadLink.style.display = 'none';
         downloadLink.href = url;
-        downloadLink.download = 'ilr_profiles.json';
+        downloadLink.download = `ilr_${safeName}.json`;
         document.body.appendChild(downloadLink);
-        
-        // Trigger download
         downloadLink.click();
-        
-        // Clean up
         setTimeout(() => {
             URL.revokeObjectURL(url);
             document.body.removeChild(downloadLink);
         }, 100);
     });
-    
-    // Create a file input for importing
+
+    // File input for importing
     const importFileInput = document.createElement('input');
     importFileInput.type = 'file';
     importFileInput.accept = '.json';
     importFileInput.style.display = 'none';
     document.body.appendChild(importFileInput);
-    
-    // Handle file import
+
     importFileInput.addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (!file) return;
-        
+
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = async function(e) {
             try {
-                const importedProfiles = JSON.parse(e.target.result);
-                
-                // Merge with existing profiles
-                profiles = {...profiles, ...importedProfiles};
-                
-                // Save to localStorage
+                const data = JSON.parse(e.target.result);
+
+                // Single-profile format: { name, firstEntry, trips }
+                if (data && typeof data === 'object' && 'firstEntry' in data && 'name' in data) {
+                    const name = String(data.name).trim();
+                    if (!name) { alert('Imported profile has empty name.'); return; }
+                    if (profiles[name]) {
+                        if (!confirm(`Profile "${name}" already exists. Overwrite with imported data?`)) return;
+                    }
+                    profiles[name] = { firstEntry: data.firstEntry, trips: Array.isArray(data.trips) ? data.trips : [] };
+                    await saveProfileToFile(name, profiles[name]);
+                    updateProfileSelect();
+                    profileSelect.value = name;
+                    profileSelect.dispatchEvent(new Event('change'));
+                    return;
+                }
+
+                // Legacy multi-profile format: { name1: {...}, name2: {...} }
+                const incoming = data || {};
+                const conflicts = Object.keys(incoming).filter(k => profiles[k]);
+                if (conflicts.length && !confirm(`These profiles already exist and will be overwritten:\n${conflicts.join(', ')}\n\nProceed?`)) return;
+                profiles = { ...profiles, ...incoming };
                 saveProfiles();
-                
-                // Update UI
                 updateProfileSelect();
-                
-                alert('Profiles imported successfully!');
+                alert('Profiles imported successfully.');
             } catch (err) {
                 console.error('Error importing profiles:', err);
                 alert('Error importing profiles. Please check the file format.');
+            } finally {
+                importFileInput.value = '';
             }
         };
         reader.readAsText(file);
     });
+
+    // Rename profile
+    const renameProfileBtn = document.getElementById('rename-profile-btn');
+    if (renameProfileBtn) {
+        renameProfileBtn.addEventListener('click', async () => {
+            const oldName = profileSelect.value;
+            if (!oldName || !profiles[oldName]) return;
+            const newNameRaw = prompt('New profile name:', oldName);
+            if (newNameRaw === null) return;
+            const newName = newNameRaw.trim();
+            if (!newName) { alert('Name cannot be empty.'); return; }
+            if (newName === oldName) return;
+            if (profiles[newName]) { alert(`Profile "${newName}" already exists.`); return; }
+
+            profiles[newName] = profiles[oldName];
+            delete profiles[oldName];
+            await saveProfileToFile(newName, profiles[newName]);
+            await deleteProfileFile(oldName);
+
+            updateProfileSelect();
+            profileSelect.value = newName;
+            currentProfile = profiles[newName];
+            localStorage.setItem('ilrLastProfile', newName);
+        });
+    }
     
-    // Update button text
-    refreshProfilesBtn.textContent = "Export Profiles";
     
     // Create Import Profiles button
     const importProfilesBtn = document.createElement('button');
