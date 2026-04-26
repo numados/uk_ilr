@@ -1,0 +1,17 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local profile data (default load directory for JSON profiles)
+.profiles/
+profiles/
+
+# Logs / temp
+*.log
+tmp/
