@@ -1,110 +1,78 @@
 # ILR Absence Calculator
 
-This web application helps track and calculate absence days for ILR (Global Talent) visa requirements in the UK. It tracks the current rolling 12-month window and also checks the historical maximum absence count in any rolling 12-month window.
+A browser-based tool to track absence days for ILR (Indefinite Leave to Remain) requirements in the UK — including the Global Talent route. Tracks the current rolling 12-month window and the historical worst-case window across the entire residence period.
+
+**Live app**: [numados.github.io/uk_ilr](https://numados.github.io/uk_ilr/)
 
 ## Features
 
-- **Multiple user profiles**: Create and manage different profiles for multiple people
-- **Visual timeline**: See a 5-year visual representation of your presence/absence in the UK
-- **Rolling 12-month window**: Automatically calculates the rolling 12-month period from the selected current date
-- **Historical breach check**: Finds the worst historical 12-month window and shows whether it exceeded 180 days
-- **Absence summary**: Shows total days absent in the last 12 months and remaining allowance
-- **Trip management**: Add, edit, and delete trips with departure and return dates
-- **Profile import/export**: Profiles are stored in browser localStorage and can be imported/exported as JSON
+- **Multiple profiles**: Create, rename, delete, and switch between profiles for different people
+- **Per-profile export / import**: Export a single profile as JSON; import single-profile or legacy multi-profile files with conflict detection
+- **Trailing 12-month chart**: SVG line chart showing how absence days evolved over time with a hover tooltip
+- **Year-per-row timeline**: Day-by-day strip highlighting presence, absence, future dates, and the current rolling window
+- **Configurable timeline length**: Choose how many years the strip and chart cover (persisted in localStorage)
+- **Absence summary**:
+  - Days absent in the current rolling 12 months
+  - Remaining days before the 180-day limit
+  - Days until the rolling window drops the earliest counted trip
+  - Worst historical 12-month window (dates + whether it breached the limit)
+  - Total days in UK vs total days since first entry
+- **Trip management**: Add, edit, and delete trips; open-ended trips (no return date) are supported
 
 ## File Structure
 
 ```
-ilr-absence-calculator/
-├── index.html           # Main HTML file with UI
-├── js/                  # JavaScript directory
-│   └── app.js           # Application logic
-├── .profiles/           # Default load/export directory for JSON profiles (gitignored)
-└── README.md            # Documentation and usage instructions
+uk_ilr/
+├── index.html           # UI and styles
+├── js/
+│   ├── calculations.js  # Pure date and absence calculation logic (no DOM)
+│   └── app.js           # Profile persistence, UI, and event handling
+└── README.md
 ```
+
+`calculations.js` is DOM-free — it can be imported or reviewed independently of the UI.
 
 ## Setup
 
-1. Open `index.html` in a modern web browser.
-2. Create profiles as needed.
-3. Use **Export Profiles** to download a JSON backup.
-4. Use **Import Profiles** to restore or merge profiles from a JSON export.
+Open `index.html` directly in a browser, or use the hosted GitHub Pages URL above. No build step, no dependencies.
 
 ## How to Use
 
-1. **Managing Profiles**:
-   - Create a new profile by entering a name and clicking "Create Profile"
-   - Use "Export Profiles" to download profile data as JSON
-   - Use "Import Profiles" to load profile data from JSON
-   - Select an existing profile from the dropdown
-
-2. **Setting Up Profile**:
-   - Enter your first entry date in the UK
-   - Save the profile
-
-3. **Adding Trips**:
-   - Enter departure date (when you left the UK)
-   - Enter return date (when you came back), or leave empty for ongoing trips
-   - Click "Add Trip"
-
-4. **Viewing Data**:
-   - The absence summary shows your status at a glance
-   - The timeline visualization shows your entire 5-year period with color coding:
-     - Green: Present in the UK
-     - Red: Absent from the UK
-     - Gray: Future dates
-     - Blue outline: Current rolling 12-month window
+1. **Create a profile** — enter a name and click "Create Profile"
+2. **Set first entry date** — the date you first entered the UK; save the profile
+3. **Add trips** — departure date (day you left the UK) and return date (day you came back); leave return empty for an ongoing trip
+4. **Read the summary** — absence counts, remaining allowance, and worst historical window update instantly
+5. **Adjust the current date** — change the reference date to simulate future or past snapshots
+6. **Export / Import** — back up or transfer a profile as JSON
 
 ## Profile JSON Format
 
-Each profile is stored as a separate JSON file with the following structure:
-
 ```json
 {
-  "firstEntry": "YYYY-MM-DD",  // Date of first entry to the UK
+  "name": "Profile Name",
+  "firstEntry": "YYYY-MM-DD",
   "trips": [
-    {
-      "departure": "YYYY-MM-DD",  // Date left the UK
-      "return": "YYYY-MM-DD"      // Date returned to the UK (or null if not returned)
-    },
-    // Additional trips...
+    { "departure": "YYYY-MM-DD", "return": "YYYY-MM-DD" },
+    { "departure": "YYYY-MM-DD", "return": null }
   ]
 }
 ```
 
-## ILR Absence Rule Research
+## ILR Absence Rules Implemented
 
-Primary sources:
+Sources:
+- [Appendix Continuous Residence](https://www.gov.uk/guidance/immigration-rules/immigration-rules-appendix-continuous-residence) — CR 3.1: no more than 180 days outside the UK in any 12-month period
+- [Home Office continuous residence guidance](https://www.gov.uk/government/publications/continuous-residence/continuous-residence-guidance-accessible-version) — rolling window and whole-day counting
+- [Global Talent ILR eligibility](https://www.gov.uk/indefinite-leave-to-remain-business-investor-global-talent/eligibility)
 
-- [Appendix Continuous Residence](https://www.gov.uk/guidance/immigration-rules/immigration-rules-appendix-continuous-residence): CR 3.1 says the applicant must not have been outside the UK for more than 180 days in any 12-month period, unless an exception applies.
-- [Home Office continuous residence guidance](https://www.gov.uk/government/publications/continuous-residence/continuous-residence-guidance-accessible-version): explains rolling 12-month calculations and whole-day counting.
-- [Global Talent ILR eligibility](https://www.gov.uk/indefinite-leave-to-remain-business-investor-global-talent/eligibility): route-specific ILR eligibility overview.
+Key rules:
+- Limit is **more than 180 days** outside the UK in **any rolling 12-month period**
+- Only **whole days** outside the UK count — departure and return dates are excluded
+- Same-day and next-day trips count as 0 absence days
+- The app scans every possible window from first entry to today to find the historical worst case
 
-Key rules implemented here:
-
-- The limit is **more than 180 days** outside the UK in **any rolling 12-month period**.
-- Only **whole days outside the UK** are counted.
-- The app therefore does **not** count the departure date or the return date for a completed trip.
-- Same-day and next-day trips normally count as `0` absence days because there is no full calendar day outside the UK between departure and return.
-- The current 12-month summary is separate from the historical breach check.
-
-Important limitations:
-
-- The app does not classify or exclude permitted absences under Appendix Continuous Residence CR 3.4.
-- The app does not decide whether a person qualifies under a 3-year or 5-year Global Talent route.
-- This is a personal tracking tool, not legal advice.
-
-## Calculation Logic
-
-- The application follows the ILR absence calculation rules:
-  - Counts only full days outside the UK
-  - Excludes departure and return dates for completed trips
-  - Calculates absences in the current rolling 12-month period
-  - Finds the worst historical rolling 12-month period from first entry to the selected current date
-  - Tracks against the 180-day limit in any consecutive 12-month period
-  - Handles absence periods that cross over different 12-month periods
+**Not implemented**: permitted-absence exceptions (CR 3.4), route-specific 3-year vs 5-year eligibility. This is a personal tracking tool, not legal advice.
 
 ## Requirements
 
-- Modern web browser with JavaScript enabled
-- Browser localStorage enabled
+- Modern browser with JavaScript and localStorage enabled
